@@ -4,7 +4,7 @@ terraform {
     organization = "chrisnieves60"
 
     workspaces {
-      name = "learn-terraform-github-actions"
+      name = "learn-terraform-github-actions2"
     }
   }
 
