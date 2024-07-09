@@ -37,7 +37,7 @@ jobs:
           TF_API_TOKEN: ${{ secrets.TF_API_TOKEN }}
 
       - name: Upload Configuration
-        uses: hashicorp/tfc-workflows-github/actions/upload-configuration@v1.0.0
+        uses: hashicorp/tfc-workflows-github/actions/upload-configuration@v1.3.0
         id: apply-upload
         with:
           workspace: ${{ env.TF_WORKSPACE }}
@@ -46,7 +46,7 @@ jobs:
           TF_API_TOKEN: ${{ secrets.TF_API_TOKEN }}
 
       - name: Create Apply Run
-        uses: hashicorp/tfc-workflows-github/actions/create-run@v1.0.0
+        uses: hashicorp/tfc-workflows-github/actions/create-run@v1.3.0
         id: apply-run
         with:
           workspace: ${{ env.TF_WORKSPACE }}
@@ -55,7 +55,7 @@ jobs:
           TF_API_TOKEN: ${{ secrets.TF_API_TOKEN }}
 
       - name: Apply
-        uses: hashicorp/tfc-workflows-github/actions/apply-run@v1.0.0
+        uses: hashicorp/tfc-workflows-github/actions/apply-run@v1.3.0
         if: fromJSON(steps.apply-run.outputs.payload).data.attributes.actions.IsConfirmable
         id: apply
         with:
