@@ -6,7 +6,7 @@ on:
       - main
 
 permissions:
-  issues: write
+  contents: read
   pull-requests: write
 
 jobs:
@@ -32,26 +32,37 @@ jobs:
 
       - name: Terraform Plan
         id: plan
-        if: github.event_name == 'pull_request'
         run: terraform plan -no-color
-        continue-on-error: true
+
+      - name: Terraform Apply
+        id: apply
+        run: terraform apply -auto-approve
 
       - name: Update Pull Request
         uses: actions/github-script@v6
-        if: github.event_name == 'pull_request'
         env:
           PLAN: "terraform\n${{ steps.plan.outputs.stdout }}"
+          APPLY: "terraform\n${{ steps.apply.outputs.stdout }}"
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const output = `#### Terraform Format and Style 🖌\`${{ steps.fmt.outcome }}\`
             #### Terraform Initialization ⚙️\`${{ steps.init.outcome }}\`
             #### Terraform Plan 📖\`${{ steps.plan.outcome }}\`
+            #### Terraform Apply 🚀\`${{ steps.apply.outcome }}\`
 
             <details><summary>Show Plan</summary>
 
             \`\`\`\n
             ${process.env.PLAN}
+            \`\`\`
+
+            </details>
+
+            <details><summary>Show Apply</summary>
+
+            \`\`\`\n
+            ${process.env.APPLY}
             \`\`\`
 
             </details>
@@ -64,7 +75,3 @@ jobs:
               repo: context.repo.repo,
               body: output
             })
-
-      - name: Terraform Apply
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: terraform apply -auto-approve
