@@ -216,16 +216,23 @@ resource "aws_iam_role" "lambda_exec" {
     ]
   })
 }
+#SQS QUEUE
+resource "aws_sqs_queue" "procedure_queue" {
+  name                        = "procedure_queue.fifo"
+  fifo_queue                  = true
+  content_based_deduplication = true
+}
 
-resource "aws_iam_role_policy" "lambda_policy" {
-  name = "lambda_exec_policy"
+#INLINE IAM POLICY, ATTACHING TO LAMBDA_EXEC ROLE 
+resource "aws_iam_role_policy" "lambda_sqs_role_policy" {
+  name = "lambda_sqs_policy"
   role = aws_iam_role.lambda_exec.id
 
   policy = jsonencode({
-    Version = "2012-10-17"
+    Version = "2012-10-17",
     Statement = [
       {
-        Effect = "Allow"
+        Effect = "Allow",
         Action = [
           "logs:CreateLogGroup",
           "logs:CreateLogStream",
@@ -234,29 +241,39 @@ resource "aws_iam_role_policy" "lambda_policy" {
         Resource = "*"
       },
       {
-        Effect = "Allow"
+        Effect = "Allow",
         Action = [
           "ec2:DescribeInstances"
         ],
         Resource = "*"
       },
       {
-        Effect = "Allow"
+        Effect = "Allow",
         Action = [
           "ssm:SendCommand"
         ],
         Resource = "*"
       },
       {
-        Effect = "Allow"
+        Effect = "Allow",
         Action = [
           "ssm:ListCommandInvocations"
         ],
         Resource = "*"
+      },
+      {
+        Effect = "Allow",
+        Action = [
+          "sqs:ReceiveMessage",
+          "sqs:DeleteMessage",
+          "sqs:GetQueueAttributes"
+        ],
+        Resource = "${aws_sqs_queue.procedure_queue.arn}"
       }
     ]
   })
 }
+
 
 resource "aws_lambda_function" "InsertionScript" {
   function_name = "InsertionScript"
@@ -269,44 +286,77 @@ resource "aws_lambda_function" "InsertionScript" {
   source_code_hash = filebase64sha256("lambda_function_payload.zip")
 }
 
+#API IAM ROLE 
+resource "aws_iam_role" "apigateway_sqs_role" {
+  name = "apigateway_sqs_role"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Principal = {
+          Service = "apigateway.amazonaws.com"
+        },
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+}
+resource "aws_iam_role_policy" "apigateway_sqs_policy" {
+  name = "apigateway_sqs_policy"
+  role = aws_iam_role.apigateway_sqs_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect   = "Allow",
+        Action   = "sqs:SendMessage",
+        Resource = "${aws_sqs_queue.procedure_queue.arn}"
+      }
+    ]
+  })
+}
+
 #API GATEWAY CREATION
 resource "aws_api_gateway_rest_api" "InsertApi" {
   name        = "InsertApi"
   description = "Insert procedure or order via api call"
 }
-
+resource "aws_api_gateway_resource" "order_resource" {
+  rest_api_id = aws_api_gateway_rest_api.InsertApi.id
+  parent_id   = aws_api_gateway_rest_api.InsertApi.root_resource_id
+  path_part   = "order"
+}
 resource "aws_api_gateway_method" "post_method" {
   rest_api_id   = aws_api_gateway_rest_api.InsertApi.id
-  resource_id   = aws_api_gateway_rest_api.InsertApi.root_resource_id
+  resource_id   = aws_api_gateway_resource.order_resource.id
   http_method   = "POST"
   authorization = "NONE"
 }
 
-resource "aws_api_gateway_integration" "lambda_integration" {
+resource "aws_api_gateway_integration" "sqs_integration" {
   rest_api_id             = aws_api_gateway_rest_api.InsertApi.id
-  resource_id             = aws_api_gateway_rest_api.InsertApi.root_resource_id
+  resource_id             = aws_api_gateway_resource.order_resource.id
   http_method             = aws_api_gateway_method.post_method.http_method
   integration_http_method = "POST"
   type                    = "AWS_PROXY"
-  uri                     = aws_lambda_function.InsertionScript.invoke_arn
+  uri                     = "arn:aws:apigateway:${var.region}:sqs:path/${aws_sqs_queue.procedure_queue.name}"
+  credentials             = aws_iam_role.apigateway_sqs_role.arn
 }
 resource "aws_api_gateway_deployment" "InsertionDeployment" {
   rest_api_id = aws_api_gateway_rest_api.InsertApi.id
   stage_name  = "dev"
 
   depends_on = [
-    aws_api_gateway_integration.lambda_integration,
+    aws_api_gateway_integration.sqs_integration,
   ]
 }
-resource "aws_lambda_permission" "api_gateway_invoke" {
-  statement_id  = "AllowAPIGatewayInvoke"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.InsertionScript.function_name
-  principal     = "apigateway.amazonaws.com"
-  source_arn    = "${aws_api_gateway_rest_api.InsertApi.execution_arn}/*/*"
-}
-resource "aws_sqs_queue" "terraform_queue" {
-  name                        = "terraform-example-queue.fifo"
-  fifo_queue                  = true
-  content_based_deduplication = true
-}
+#NO LONGER NEEDED 
+# resource "aws_lambda_permission" "api_gateway_invoke" {
+#   statement_id  = "AllowAPIGatewayInvoke"
+#   action        = "lambda:InvokeFunction"
+#   function_name = aws_lambda_function.InsertionScript.function_name
+#   principal     = "apigateway.amazonaws.com"
+#   source_arn    = "${aws_api_gateway_rest_api.InsertApi.execution_arn}/*/*"
+# }
