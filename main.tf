@@ -340,9 +340,20 @@ resource "aws_api_gateway_integration" "sqs_integration" {
   resource_id             = aws_api_gateway_resource.order_resource.id
   http_method             = aws_api_gateway_method.post_method.http_method
   integration_http_method = "POST"
-  type                    = "AWS_PROXY"
+  type                    = "AWS"
   uri                     = "arn:aws:apigateway:${var.region}:sqs:path/${aws_sqs_queue.procedure_queue.name}"
   credentials             = aws_iam_role.apigateway_sqs_role.arn
+  request_parameters = {
+    "integration.request.header.Content-Type" = "'application/x-www-form-urlencoded'"
+  }
+  request_templates = {
+    "application/json" = <<-EOF
+  Action=SendMessage
+  &MessageBody=$input.body
+  &QueueUrl=${aws_sqs_queue.procedure_queue.id}
+  EOF
+  }
+  passthrough_behavior = "WHEN_NO_TEMPLATES"
 }
 resource "aws_api_gateway_deployment" "InsertionDeployment" {
   rest_api_id = aws_api_gateway_rest_api.InsertApi.id
