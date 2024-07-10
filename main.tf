@@ -1,10 +1,10 @@
 terraform {
 
   cloud {
-    organization = "chrisnieves60"
+    organization = "chrisnieves60" #change to your organization
 
     workspaces {
-      name = "learn-terraform-github-actions2"
+      name = "learn-terraform-github-actions2" #change to your workspace name
     }
   }
 
@@ -137,7 +137,7 @@ resource "aws_security_group" "my_security_group" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["98.113.250.244/32"]
+    cidr_blocks = ["98.113.250.244/32"] #Change to your IP
   }
 
   tags = {
@@ -304,4 +304,9 @@ resource "aws_lambda_permission" "api_gateway_invoke" {
   function_name = aws_lambda_function.InsertionScript.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_api_gateway_rest_api.InsertApi.execution_arn}/*/*"
+}
+resource "aws_sqs_queue" "terraform_queue" {
+  name                        = "terraform-example-queue.fifo"
+  fifo_queue                  = true
+  content_based_deduplication = true
 }
