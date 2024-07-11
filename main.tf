@@ -337,7 +337,26 @@ resource "aws_api_gateway_method" "post_method" {
   http_method   = "POST"
   authorization = "NONE"
 }
+resource "aws_api_gateway_integration_response" "sqs_integration_response_default" {
+  rest_api_id = aws_api_gateway_rest_api.InsertApi.id
+  resource_id = aws_api_gateway_resource.order_resource.id
+  http_method = aws_api_gateway_method.post_method.http_method
+  status_code = "200"
 
+  # This will catch all responses that don't match other integration responses
+  selection_pattern = ""
+
+  response_templates = {
+    "application/json" = <<EOF
+    #set($inputRoot = $input.path('$'))
+    {
+      "response": $inputRoot
+    }
+    EOF
+  }
+
+  depends_on = [aws_api_gateway_integration.sqs_integration]
+}
 resource "aws_api_gateway_integration" "sqs_integration" {
   rest_api_id             = aws_api_gateway_rest_api.InsertApi.id
   resource_id             = aws_api_gateway_resource.order_resource.id
@@ -365,6 +384,8 @@ resource "aws_api_gateway_integration_response" "sqs_integration_response" {
   resource_id = aws_api_gateway_resource.order_resource.id
   http_method = aws_api_gateway_method.post_method.http_method
   status_code = "200"
+
+  selection_pattern = "2//d{2}"
 
   response_templates = {
     "application/json" = <<EOF
@@ -425,6 +446,9 @@ resource "aws_api_gateway_deployment" "InsertionDeployment" {
 
   depends_on = [
     aws_api_gateway_integration.sqs_integration,
+    aws_api_gateway_integration_response.sqs_integration_response,
+    aws_api_gateway_integration_response.sqs_integration_response_error,
+    aws_api_gateway_integration_response.sqs_integration_response_default
   ]
 }
 resource "aws_lambda_event_source_mapping" "map_sqs_to_lamdba" {
