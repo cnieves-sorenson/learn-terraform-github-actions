@@ -222,6 +222,7 @@ resource "aws_sqs_queue" "procedure_queue" {
   name                        = "procedure_queue.fifo"
   fifo_queue                  = true
   content_based_deduplication = true
+  visibility_timeout_seconds  = 30
 }
 
 #INLINE IAM POLICY, ATTACHING TO LAMBDA_EXEC ROLE 
@@ -282,7 +283,7 @@ resource "aws_lambda_function" "InsertionScript" {
   runtime       = "python3.8"
   role          = aws_iam_role.lambda_exec.arn
   filename      = "lambda_function_payload.zip"
-  timeout       = 300
+  timeout       = 30
 
   source_code_hash = filebase64sha256("lambda_function_payload.zip")
 }
@@ -343,7 +344,7 @@ resource "aws_api_gateway_integration" "sqs_integration" {
   http_method             = aws_api_gateway_method.post_method.http_method
   integration_http_method = "POST"
   type                    = "AWS"
-  uri                     = "arn:aws:apigateway:${var.region}:sqs:path/${aws_sqs_queue.procedure_queue.id}"
+  uri                     = "arn:aws:apigateway:${var.region}:sqs:path/${aws_sqs_queue.procedure_queue.name}"
   credentials             = aws_iam_role.apigateway_sqs_role.arn
   request_parameters = {
     "integration.request.header.Content-Type" = "'application/x-www-form-urlencoded'"
