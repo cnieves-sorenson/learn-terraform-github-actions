@@ -370,10 +370,8 @@ resource "aws_api_gateway_integration" "sqs_integration" {
   }
   request_templates = {
     "application/json" = <<-EOF
-  Action=SendMessage
-  &Version=2012-11-05
-  &MessageBody=$input.body
-  &QueueUrl=${aws_sqs_queue.procedure_queue.id}
+Action=SendMessage&Version=2012-11-05&MessageBody=$util.urlEncode($input.json('$'))&QueueUrl=$util.urlEncode('${aws_sqs_queue.procedure_queue.id}')
+
   EOF
   }
   passthrough_behavior = "WHEN_NO_TEMPLATES"
@@ -409,10 +407,16 @@ resource "aws_api_gateway_integration_response" "sqs_integration_response_error"
 
   response_templates = {
     "application/json" = <<EOF
+#set($inputRoot = $input.path('$'))
 {
-  "message": "Error sending message to SQS",
-  "error": $input.json('$.Error.Message')
+  "error": {
+    "type": $input.json('$.Error.Type'),
+    "code": $input.json('$.Error.Code'),
+    "message": $input.json('$.Error.Message')
+  },
+  "requestId": $input.json('$.RequestId')
 }
+
 EOF
   }
 
