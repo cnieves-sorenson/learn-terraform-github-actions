@@ -1,5 +1,9 @@
 import boto3
 import json
+import logging 
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 def lambda_handler(event, context):
     print("Received event: " + json.dumps(event))
@@ -7,7 +11,7 @@ def lambda_handler(event, context):
     for record in event['Records']: 
         body = record['body']
         message = json.loads(body)
-        
+
         operation_type = message.get('operation_type')
         first_name = message.get('first_name')
         last_name = message.get('last_name')
@@ -17,10 +21,12 @@ def lambda_handler(event, context):
 
     #incorrect body exception response
     if not first_name or not last_name or not dob or not operation_type: 
+        logger.error("ERROR: Missing required parameters: %s", message)
         return {
             'statusCode': 400, 
             'body': json.dumps('Missing req parameters: first_name, last_name, dob, operation_type, abnormal, result')
         }
+    logger.info("Message received.")
     
     # instantiate ssm client
     ssm_client = boto3.client('ssm')
@@ -45,6 +51,7 @@ def lambda_handler(event, context):
 
         instances = response['Reservations']
         if not instances: 
+            logger.info("ERROR: NO INSTANCE FOUND WITH SPECIFIED TAG")
             return {
                 'statusCode': 404, 
                 'body': json.dumps('No instances found with specified tag')
@@ -57,13 +64,16 @@ def lambda_handler(event, context):
             command = f'sh /scripts/insert_procedure.sh "{first_name}" "{last_name}" "{dob}"'
         elif operation_type == 'insert_result': 
             if not abnormal or not result: 
+                logger.info("ERROR: missing parameters abnormal, result for inserting results")
+
                 return {
                     'statusCode': 400, 
                     'body': json.dumps('Missing req parameters: abnormal, result')
                 }
             else: 
                 command = f'sh /scripts/insert_result.sh "{first_name}" "{last_name}" "{dob}" "{result}" "{abnormal}"'
-
+        
+        logger.info("Sending SSM command to EC2...")
 
         #send command to ec2 instance using ssm run command
         ssm_response = ssm_client.send_command(
@@ -71,6 +81,7 @@ def lambda_handler(event, context):
             DocumentName='AWS-RunShellScript', #ssm doc for running shell script 
             Parameters={'commands': [command]} #Parameters for command 
         )
+        logger.info("Process complete. Insertion into EC2 successful.")
 
         return {
             'statusCode': 200, 

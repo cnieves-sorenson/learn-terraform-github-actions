@@ -384,7 +384,6 @@ resource "aws_api_gateway_integration_response" "sqs_integration_response" {
   http_method = aws_api_gateway_method.post_method.http_method
   status_code = "200"
 
-  selection_pattern = "2\\d{2}"
 
   response_templates = {
     "application/json" = <<EOF
