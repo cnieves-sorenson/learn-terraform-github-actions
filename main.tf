@@ -371,9 +371,7 @@ resource "aws_api_gateway_integration" "sqs_integration" {
   }
   request_templates = {
     "application/json" = <<-EOF
-  Action=SendMessage
-  &MessageBody=$input.body
-  &QueueUrl=${aws_sqs_queue.procedure_queue.id}
+  Action=SendMessage&Version=2012-11-05&MessageBody=$input.body&QueueUrl=${aws_sqs_queue.procedure_queue.id}&MessageGroupId=default
   EOF
   }
   passthrough_behavior = "WHEN_NO_TEMPLATES"

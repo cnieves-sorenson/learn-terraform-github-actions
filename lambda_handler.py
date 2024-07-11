@@ -4,15 +4,17 @@ import json
 def lambda_handler(event, context):
     print("Received event: " + json.dumps(event))
 
-    body = json.loads(event['body'])
-    
-    operation_type = body.get('operation_type')
-    first_name = body.get('first_name')
-    last_name = body.get('last_name')
-    dob = body.get('dob')
-    abnormal = body.get('abnormal')
-    result = body.get('result')
-    
+    for record in event['Records']: 
+        body = record['body']
+        message = json.loads(body)
+        
+        operation_type = message.get('operation_type')
+        first_name = message.get('first_name')
+        last_name = message.get('last_name')
+        dob = message.get('dob')
+        abnormal = message.get('abnormal')
+        result = message.get('result')
+
     #incorrect body exception response
     if not first_name or not last_name or not dob or not operation_type: 
         return {
