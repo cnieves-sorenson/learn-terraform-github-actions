@@ -370,11 +370,11 @@ resource "aws_lambda_event_source_mapping" "map_sqs_to_lamdba" {
   event_source_arn = aws_sqs_queue.procedure_queue.arn
   function_name    = aws_lambda_function.InsertionScript.arn
 }
-#NO LONGER NEEDED 
-# resource "aws_lambda_permission" "api_gateway_invoke" {
-#   statement_id  = "AllowAPIGatewayInvoke"
-#   action        = "lambda:InvokeFunction"
-#   function_name = aws_lambda_function.InsertionScript.function_name
-#   principal     = "apigateway.amazonaws.com"
-#   source_arn    = "${aws_api_gateway_rest_api.InsertApi.execution_arn}/*/*"
-# }
+resource "aws_lambda_permission" "sqs_invoke_lambda" {
+  statement_id  = "AllowSQSToInvokeLambda"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.InsertionScript.function_name
+  principal     = "sqs.amazonaws.com"
+  source_arn    = aws_sqs_queue.procedure_queue.arn
+}
+
