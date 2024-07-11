@@ -200,6 +200,7 @@ resource "aws_eip_association" "eip_assoc" {
   allocation_id = aws_eip.my_eip.id
 }
 
+#LAMBDA EXEC ROLE 
 resource "aws_iam_role" "lambda_exec" {
   name = "lambda_exec_role"
 
@@ -286,6 +287,7 @@ resource "aws_lambda_function" "InsertionScript" {
   source_code_hash = filebase64sha256("lambda_function_payload.zip")
 }
 
+
 #API IAM ROLE 
 resource "aws_iam_role" "apigateway_sqs_role" {
   name = "apigateway_sqs_role"
@@ -341,7 +343,7 @@ resource "aws_api_gateway_integration" "sqs_integration" {
   http_method             = aws_api_gateway_method.post_method.http_method
   integration_http_method = "POST"
   type                    = "AWS"
-  uri                     = "arn:aws:apigateway:${var.region}:sqs:path/${aws_sqs_queue.procedure_queue.name}"
+  uri                     = "arn:aws:apigateway:${var.region}:sqs:path/${aws_sqs_queue.procedure_queue.id}"
   credentials             = aws_iam_role.apigateway_sqs_role.arn
   request_parameters = {
     "integration.request.header.Content-Type" = "'application/x-www-form-urlencoded'"
@@ -362,6 +364,10 @@ resource "aws_api_gateway_deployment" "InsertionDeployment" {
   depends_on = [
     aws_api_gateway_integration.sqs_integration,
   ]
+}
+resource "aws_lambda_event_source_mapping" "map_sqs_to_lamdba" {
+  event_source_arn = aws_sqs_queue.procedure_queue.arn
+  function_name    = aws_lambda_function.InsertionScript.arn
 }
 #NO LONGER NEEDED 
 # resource "aws_lambda_permission" "api_gateway_invoke" {
