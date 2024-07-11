@@ -371,6 +371,7 @@ resource "aws_api_gateway_integration" "sqs_integration" {
   request_templates = {
     "application/json" = <<-EOF
   Action=SendMessage
+  &Version=2012-11-05
   &MessageBody=$input.body
   &QueueUrl=${aws_sqs_queue.procedure_queue.id}
   EOF
@@ -410,7 +411,7 @@ resource "aws_api_gateway_integration_response" "sqs_integration_response_error"
     "application/json" = <<EOF
 {
   "message": "Error sending message to SQS",
-  "error": $input.json('$.errorMessage')
+  "error": $input.json('$.Error.Message')
 }
 EOF
   }
@@ -435,6 +436,9 @@ resource "aws_api_gateway_method_response" "response_400" {
 
   response_models = {
     "application/json" = "Error"
+  }
+  response_parameters = {
+    "method.response.header.Content-Type" = true
   }
 }
 
