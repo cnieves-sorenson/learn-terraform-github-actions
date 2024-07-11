@@ -358,6 +358,67 @@ resource "aws_api_gateway_integration" "sqs_integration" {
   }
   passthrough_behavior = "WHEN_NO_TEMPLATES"
 }
+
+# API Gateway Method Response
+resource "aws_api_gateway_integration_response" "sqs_integration_response" {
+  rest_api_id = aws_api_gateway_rest_api.InsertApi.id
+  resource_id = aws_api_gateway_resource.order_resource.id
+  http_method = aws_api_gateway_method.post_method.http_method
+  status_code = "200"
+
+  response_templates = {
+    "application/json" = <<EOF
+{
+  "message": "Message sent to SQS successfully",
+  "messageId": $input.json('$.MessageId')
+}
+EOF
+  }
+
+  depends_on = [aws_api_gateway_integration.sqs_integration]
+}
+resource "aws_api_gateway_integration_response" "sqs_integration_response_error" {
+  rest_api_id = aws_api_gateway_rest_api.InsertApi.id
+  resource_id = aws_api_gateway_resource.order_resource.id
+  http_method = aws_api_gateway_method.post_method.http_method
+  status_code = "400"
+
+  selection_pattern = "4\\d{2}" # Regex for 4XX status codes
+
+  response_templates = {
+    "application/json" = <<EOF
+{
+  "message": "Error sending message to SQS",
+  "error": $input.json('$.errorMessage')
+}
+EOF
+  }
+
+  depends_on = [aws_api_gateway_integration.sqs_integration]
+}
+resource "aws_api_gateway_method_response" "response_200" {
+  rest_api_id = aws_api_gateway_rest_api.InsertApi.id
+  resource_id = aws_api_gateway_resource.order_resource.id
+  http_method = aws_api_gateway_method.post_method.http_method
+  status_code = "200"
+
+  response_models = {
+    "application/json" = "Empty"
+  }
+}
+resource "aws_api_gateway_method_response" "response_400" {
+  rest_api_id = aws_api_gateway_rest_api.InsertApi.id
+  resource_id = aws_api_gateway_resource.order_resource.id
+  http_method = aws_api_gateway_method.post_method.http_method
+  status_code = "400"
+
+  response_models = {
+    "application/json" = "Error"
+  }
+}
+
+
+
 resource "aws_api_gateway_deployment" "InsertionDeployment" {
   rest_api_id = aws_api_gateway_rest_api.InsertApi.id
   stage_name  = "dev"
